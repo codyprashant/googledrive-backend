@@ -16,7 +16,6 @@ authRoute.post("/register", async (req, res) => {
     let client = await mongoClient.connect(dbUrl, {useNewUrlParser: true, useUnifiedTopology: true});
     let db = client.db("googledriveclone");
     let newuser = req.body;
-    console.log(newuser)
     let data = await db.collection("users").findOne({ email: newuser.email });
     if (data) {
       res.status(200).json({ message: "User already Registered" });
@@ -211,13 +210,13 @@ async function sendEmail(userEmail, code, purpose) {
   
     if(purpose == 'NEWACCOUNT'){
     var message = `Your account has been created successfully. Please verify your account by clicking below URL
-                        ${process.env.FRONTEND_URL}\\pages\\auth\\unlockUser?email=${userEmail}&code=${code}`
+                        <a href="${process.env.FRONTEND_URL}\\pages\\auth\\unlockUser?email=${userEmail}&code=${code}"> Verify our Account</a>`
 
     var mailOptions = {
         from: process.env.GMAIL,
         to: userEmail, 
         subject: 'Verify your Email Address',
-        text: message
+        html: message
     }
     
     transporter.sendMail(mailOptions, function(error, response){
@@ -229,12 +228,12 @@ async function sendEmail(userEmail, code, purpose) {
 
 else if(purpose == 'PASSWORDRESET'){
   var message = `You have raised password reset request. Please click on below URL to reset Password
-  ${process.env.FRONTEND_URL}\\pages\\auth\\resetPwd?email=${userEmail}&code=${code}`
+  <a href="${process.env.FRONTEND_URL}\\pages\\auth\\resetPwd?email=${userEmail}&code=${code}"> Verify our Account</a>`
   var mailOptions = {
       from: process.env.GMAIL,
       to: userEmail, 
       subject: 'Password Reset',
-      text: message
+      html: message
   }
   
   transporter.sendMail(mailOptions, function(error, response){
