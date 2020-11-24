@@ -158,7 +158,7 @@ authRoute.post("/verifyaccount/", async (req, res) => {
           if(data.status =='ACTIVE'){
             let salt = await bcrypt.genSalt(12);
             let hash = await bcrypt.hash(req.body.password, salt);
-            let result = await db.collection("users").findOneAndUpdate({ _id: data._id }, { $set: { code: '', password: hash } });          
+            let result = await db.collection("users").findOneAndUpdate({ _id: data._id }, { $set: { code: '', password: hash,  code:''  } });          
             res.status(200).json({status:"SUCCESS", message: "Password  successfully changed, Please Login again"  });
             client.close();
           } else{
@@ -182,7 +182,7 @@ authRoute.post("/verifyaccount/", async (req, res) => {
       } else {
           if(data.status =='ACTIVE'){
               if(data.code == req.body.code){
-                let result = await db.collection("users").findOneAndUpdate({ _id: data._id }, { $set: { status: 'ACTIVE', activationCode:'' } });
+                let result = await db.collection("users").findOneAndUpdate({ _id: data._id }, { $set: { status: 'ACTIVE'} });
                 res.status(200).json({ status:"SUCCESS", message: "REquest Verified" });
                 client.close();
               } else{
@@ -212,10 +212,10 @@ async function sendEmail(userEmail, code, purpose) {
   
     if(purpose == 'NEWACCOUNT'){
     var message = `Your account has been created successfully. Please verify your account by clicking below URL
-                        http:\\\\localhost:3000\\pages\\auth\\unlockUser?email=${userEmail}&code=${code}`
+                        ${process.env.FRONTEND_URL}\\pages\\auth\\unlockUser?email=${userEmail}&code=${code}`
 
     var mailOptions = {
-        from: "prashant6893@gmail.com",
+        from: process.env.GMAIL,
         to: userEmail, 
         subject: 'Verify your Email Address',
         text: message
@@ -229,10 +229,10 @@ async function sendEmail(userEmail, code, purpose) {
 }
 
 else if(purpose == 'PASSWORDRESET'){
-  var message = `Youhave raised password reset request. Please click on below URL to reset Password
-                      http:\\\\localhost:3000\\pages\\auth\\resetPwd?email=${userEmail}&code=${code}`
+  var message = `You have raised password reset request. Please click on below URL to reset Password
+  ${process.env.FRONTEND_URL}\\pages\\auth\\resetPwd?email=${userEmail}&code=${code}`
   var mailOptions = {
-      from: "prashant6893@gmail.com",
+      from: process.env.GMAIL,
       to: userEmail, 
       subject: 'Password Reset',
       text: message
