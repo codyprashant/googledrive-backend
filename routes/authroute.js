@@ -201,45 +201,60 @@ async function sendEmail(userEmail, code, purpose) {
   
     // create reusable transporter object using the default SMTP transport
     let transporter = nodemailer.createTransport({
-        service: "Gmail",
+        // service: "Gmail",
+        host: 'mail.zaiffly.com',
+        port: 465,
+         // true for 465, false for other ports
         auth: {
-            user: process.env.GMAIL,
+            user: process.env.EMAIL,
             pass: process.env.PASSWORD
         }
     });
   
     if(purpose == 'NEWACCOUNT'){
     var message = `Your account has been created successfully. Please verify your account by clicking below URL
-                        <a href="${process.env.FRONTEND_URL}\\pages\\auth\\unlockUser?email=${userEmail}&code=${code}"> Verify our Account</a>`
+                        <a href="${process.env.FRONTEND_URL}/pages/auth/unlockUser?email=${userEmail}&code=${code}"> Verify our Account</a>`
 
     var mailOptions = {
-        from: process.env.GMAIL,
+        from: process.env.EMAIL,
         to: userEmail, 
         subject: 'Verify your Email Address',
         html: message
     }
     
-    transporter.sendMail(mailOptions, function(error, response){
+    await transporter.sendMail(mailOptions, function(error, response){
         if(error){
             console.log(error);
         }
+        if(response){
+          return true;
+        } else{
+          return false;
+        }
+        
     });
 }
 
 else if(purpose == 'PASSWORDRESET'){
   var message = `You have raised password reset request. Please click on below URL to reset Password
-  <a href="${process.env.FRONTEND_URL}\\pages\\auth\\resetPwd?email=${userEmail}&code=${code}"> Verify our Account</a>`
+  <a href="${process.env.FRONTEND_URL}/pages/auth/resetPwd?email=${userEmail}&code=${code}"> Verify our Account</a>`
   var mailOptions = {
-      from: process.env.GMAIL,
+      from: process.env.EMAIL,
       to: userEmail, 
       subject: 'Password Reset',
       html: message
   }
   
-  transporter.sendMail(mailOptions, function(error, response){
+  await transporter.sendMail(mailOptions, function(error, response){
       if(error){
           console.log(error);
       }
+      if(response){
+        return true;
+      } else{
+        return false;
+      }
+      
   });
 }
 
