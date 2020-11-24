@@ -9,7 +9,6 @@ const nodemailer = require("nodemailer");
 const { authorize, allowUser } = require("../middlewares/auth");
 const mongoClient = mongoDB.MongoClient;
 const objId = mongoDB.ObjectID;
-console.log(process.env.DB_URL)
 const dbUrl = process.env.DB_URL ;
 
 authRoute.post("/register", async (req, res) => {
