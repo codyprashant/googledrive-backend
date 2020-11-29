@@ -1,4 +1,5 @@
-import CryptoJS from 'crypto-js'
+// import CryptoJS from ''
+const CryptoJS = require("crypto-js");
 
 const encryptRequest = async (params) => {
     var ciphertext = CryptoJS.AES.encrypt(JSON.stringify(params), process.env.ENCRYPTION_SECRET).toString();
@@ -20,4 +21,4 @@ const getTimestampwithdate = ()=> {
   }
 
 
-export {encryptRequest, decryptRequest, getTimestampwithdate}; 
+module.exports = {encryptRequest, decryptRequest, getTimestampwithdate}; 
