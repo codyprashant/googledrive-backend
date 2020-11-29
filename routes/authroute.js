@@ -60,7 +60,7 @@ authRoute.post("/login", async (req, res) => {
           });
         } else {
           res.status(203).json({
-            message: "Account Not Active",
+            message: "Incorrect Password",
           });
         }
       } else {
