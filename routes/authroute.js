@@ -26,7 +26,7 @@ authRoute.post("/register", async (req, res) => {
       newuser.status = "INACTIVE";
       let result = await db.collection("users").insertOne(newuser);
       let encryptedDet = encryptRequest({email: newuser.email, activationCode: newuser.activationCode})
-      sendEmail(encryptedDet, 'NEWACCOUNT')
+      sendEmail(newuser.email,encryptedDet, 'NEWACCOUNT')
       res.status(200).json({status:"SUCCESS", message:"Registered successfully, Please check Your Email to Verify your account" });
       client.close();
     }
@@ -131,7 +131,7 @@ authRoute.post("/verifyaccount/", async (req, res) => {
                 let genCode = randomstring.generate();
                 let result = await db.collection("users").findOneAndUpdate({ _id: data._id }, { $set: { code: genCode } });
                 let encryptedDet = encryptRequest({email: req.body.email, code: genCode})
-                sendEmail(encryptedDet, 'PASSWORDRESET') 
+                sendEmail(req.body.email,encryptedDet, 'PASSWORDRESET') 
                 res.status(200).json({ status:"SUCCESS", message: "Password Reset Email Sent" });
                 client.close();
            
@@ -202,7 +202,7 @@ authRoute.post("/verifyaccount/", async (req, res) => {
   });
 
 
-async function sendEmail(encryptText, purpose) {
+async function sendEmail(userEmail, encryptText, purpose) {
   
     // create reusable transporter object using the default SMTP transport
     let transporter = nodemailer.createTransport({
