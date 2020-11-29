@@ -5,8 +5,7 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const randomstring = require("randomstring");
 const nodemailer = require("nodemailer");
-
-const { authorize, allowUser } = require("../middlewares/auth");
+const { encryptRequest, decryptRequest } = require("../encryption/encrypt");
 const mongoClient = mongoDB.MongoClient;
 const objId = mongoDB.ObjectID;
 const dbUrl = process.env.DB_URL ;
@@ -18,7 +17,7 @@ authRoute.post("/register", async (req, res) => {
     let newuser = req.body;
     let data = await db.collection("users").findOne({ email: newuser.email });
     if (data) {
-      res.status(200).json({ message: "User already Registered" });
+      res.status(203).json({ message: "User already Registered" });
     } else {
       let salt = await bcrypt.genSalt(12);
       let hash = await bcrypt.hash(newuser.password, salt);
@@ -26,13 +25,14 @@ authRoute.post("/register", async (req, res) => {
       newuser.activationCode = randomstring.generate();
       newuser.status = "INACTIVE";
       let result = await db.collection("users").insertOne(newuser);
-      sendEmail(newuser.email, newuser.activationCode, 'NEWACCOUNT')
+      let encryptedDet = encryptRequest({email: newuser.email, activationCode: newuser.activationCode})
+      sendEmail(encryptedDet, 'NEWACCOUNT')
       res.status(200).json({status:"SUCCESS", message:"Registered successfully, Please check Your Email to Verify your account" });
       client.close();
     }
   } catch (err) {
     console.log(err);
-    res.status(200).json({ message: "Something went wrong. Please try again after sometime." });
+    res.status(204).json({ message: "Something went wrong. Please try again after sometime." });
   }
 });
 
@@ -61,17 +61,17 @@ authRoute.post("/login", async (req, res) => {
             userData:{ Fname: data.firstName, Lname:data.lastName, email:data.email}
           });
         } else {
-          res.status(403).json({
+          res.status(203).json({
             message: "Account Not Active",
           });
         }
       } else {
-        res.status(403).json({
+        res.status(203).json({
           message: "User account is not activated. Please activate the account using verification email",
         });
       }
     } else {
-      res.status(401).json({
+      res.status(203).json({
         status: "ERROR",
         message: "Email is not registered",
       });
@@ -79,7 +79,7 @@ authRoute.post("/login", async (req, res) => {
     client.close();
   } catch (error) {
     console.log(error);
-    res.status(401).json({
+    res.status(204).json({
         status: "ERROR",
         message: "We are having some trouble authorizing, Please reach out to Administrator",
       });
@@ -91,27 +91,28 @@ authRoute.post("/verifyaccount/", async (req, res) => {
     try {
       let client = await mongoClient.connect(dbUrl, {useNewUrlParser: true, useUnifiedTopology: true});
       let db = client.db("googledriveclone");
+      let reqData = decryptRequest(req.body.encryptedText)
       let data = await db
         .collection("users")
-        .findOne({ email: req.body.email });
+        .findOne({ email: reqData.email });
       if (!data) {
-        res.status(401).json({ status:"ERROR", message: "Invalid Url and User Verification" });
+        res.status(203).json({ status:"ERROR", message: "Invalid Url and User Verification" });
       } else {
           if(data.status =='INACTIVE'){
-              if(data.activationCode == req.body.code){
+              if(data.activationCode == reqData.activationCode){
                 let result = await db.collection("users").findOneAndUpdate({ _id: data._id }, { $set: { status: 'ACTIVE', activationCode:'' } });
                 res.status(200).json({ status:"SUCCESS", message: "User Activated successfully" });
                 client.close();
               } else{
-                res.status(401).json({ status:"ERROR", message: "Invalid URL with code" });
+                res.status(203).json({ status:"ERROR", message: "Invalid URL with code" });
               }
           } else{
-            res.status(401).json({ status:"ERROR", message: "Account is already activated" });
+            res.status(203).json({ status:"ERROR", message: "Account is already activated" });
           }
       }
     } catch (err) {
       console.log(err);
-      res.status(401).json({ status:"ERROR", message: "Invalid URL" });
+      res.status(2004).json({ status:"ERROR", message: "Invalid URL" });
     }
   });
 
@@ -124,22 +125,23 @@ authRoute.post("/verifyaccount/", async (req, res) => {
         .collection("users")
         .findOne({ email: req.body.email });
       if (!data) {
-        res.status(401).json({ message: "Email not Registered" });
+        res.status(203).json({ message: "Email not Registered" });
       } else {
           if(data.status =='ACTIVE'){
                 let genCode = randomstring.generate();
                 let result = await db.collection("users").findOneAndUpdate({ _id: data._id }, { $set: { code: genCode } });
-                sendEmail(req.body.email, genCode, 'PASSWORDRESET') 
+                let encryptedDet = encryptRequest({email: req.body.email, code: genCode})
+                sendEmail(encryptedDet, 'PASSWORDRESET') 
                 res.status(200).json({ status:"SUCCESS", message: "Password Reset Email Sent" });
                 client.close();
            
           } else{
-            res.status(401).json({ status:"ERROR", message: "Account is not active activated. Please check your email to verify your email" });
+            res.status(203).json({ status:"ERROR", message: "Account is not active activated. Please check your email to verify your email" });
           }
       }
     } catch (err) {
       console.log(err);
-      res.status(401).json({ status:"ERROR", message: "Something went wrong" });
+      res.status(204).json({ status:"ERROR", message: "Something went wrong" });
     }
   });
 
@@ -147,24 +149,26 @@ authRoute.post("/verifyaccount/", async (req, res) => {
     try {
       let client = await mongoClient.connect(dbUrl, {useNewUrlParser: true, useUnifiedTopology: true});
       let db = client.db("googledriveclone");
+      let reqData = decryptRequest(req.body.encryptedText)
       let data = await db
         .collection("users")
-        .findOne({ email: req.body.email });
+        .findOne({ email: reqData.email });
       if (!data) {
-        res.status(401).json({ message: "Email not Registered" });
+        res.status(203).json({ message: "Email not Registered" });
       } else {
           if(data.status =='ACTIVE'){
             let salt = await bcrypt.genSalt(12);
             let hash = await bcrypt.hash(req.body.password, salt);
-            let result = await db.collection("users").findOneAndUpdate({ _id: data._id }, { $set: { code: '', password: hash,  code:''  } });          
+            let result = await db.collection("users").findOneAndUpdate({ _id: data._id }, { $set: { code: '', password: hash } });          
             res.status(200).json({status:"SUCCESS", message: "Password  successfully changed, Please Login again"  });
             client.close();
           } else{
-            res.status(401).json({ status:"ERROR", message: "Account is not active activated. Please check your email to verify your email" });
+            res.status(203).json({ status:"ERROR", message: "Account is not active activated. Please check your email to verify your email" });
           }
       }
     } catch (err) {
       console.log(err);
+      res.status(204).json({ status:"ERROR", message: "Something went wrong" });
     }
   });
 
@@ -172,32 +176,33 @@ authRoute.post("/verifyaccount/", async (req, res) => {
     try {
       let client = await mongoClient.connect(dbUrl, {useNewUrlParser: true, useUnifiedTopology: true});
       let db = client.db("googledriveclone");
+      let reqData = decryptRequest(req.body.encryptedText)
       let data = await db
         .collection("users")
-        .findOne({ email: req.body.email });
+        .findOne({ email: reqData.email });
       if (!data) {
-        res.status(401).json({ status:"ERROR", message: "Invalid Url and User Verification" });
+        res.status(203).json({ status:"ERROR", message: "Invalid Url and User Verification" });
       } else {
           if(data.status =='ACTIVE'){
-              if(data.code == req.body.code){
+              if(data.code == reqData.code){
                 let result = await db.collection("users").findOneAndUpdate({ _id: data._id }, { $set: { status: 'ACTIVE'} });
                 res.status(200).json({ status:"SUCCESS", message: "REquest Verified" });
                 client.close();
               } else{
-                res.status(401).json({ status:"ERROR", message: "Invalid URL with code" });
+                res.status(203).json({ status:"ERROR", message: "Invalid URL with code" });
               }
           } else{
-            res.status(401).json({ status:"ERROR", message: "Account is INACTIVE" });
+            res.status(203).json({ status:"ERROR", message: "Account is INACTIVE" });
           }
       }
     } catch (err) {
       console.log(err);
-      res.status(401).json({ status:"ERROR", message: "Invalid URL" });
+      res.status(204).json({ status:"ERROR", message: "Invalid URL" });
     }
   });
 
 
-async function sendEmail(userEmail, code, purpose) {
+async function sendEmail(encryptText, purpose) {
   
     // create reusable transporter object using the default SMTP transport
     let transporter = nodemailer.createTransport({
@@ -213,7 +218,7 @@ async function sendEmail(userEmail, code, purpose) {
   
     if(purpose == 'NEWACCOUNT'){
     var message = `Your account has been created successfully. Please verify your account by clicking below URL
-                        <a href="${process.env.FRONTEND_URL}/pages/auth/unlockUser?email=${userEmail}&code=${code}"> Verify our Account</a>`
+                        <a href="${process.env.FRONTEND_URL}/pages/auth/unlockUser/${encryptText}"> Verify our Account</a>`
 
     var mailOptions = {
         from: process.env.EMAIL,
@@ -237,7 +242,7 @@ async function sendEmail(userEmail, code, purpose) {
 
 else if(purpose == 'PASSWORDRESET'){
   var message = `You have raised password reset request. Please click on below URL to reset Password
-  <a href="${process.env.FRONTEND_URL}/pages/auth/resetPwd?email=${userEmail}&code=${code}"> Verify our Account</a>`
+  <a href="${process.env.FRONTEND_URL}/pages/auth/resetPwd/${encryptText}"> Verify our Account</a>`
   var mailOptions = {
       from: process.env.EMAIL,
       to: userEmail, 
