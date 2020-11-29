@@ -5,7 +5,7 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const randomstring = require("randomstring");
 const nodemailer = require("nodemailer");
-const { encryptRequest, decryptRequest } = require("../encryption/encrypt");
+const {  encryptRequest,  decryptRequest } = require("../encryption/encrypt");
 const mongoClient = mongoDB.MongoClient;
 const objId = mongoDB.ObjectID;
 const dbUrl = process.env.DB_URL ;
@@ -25,7 +25,7 @@ authRoute.post("/register", async (req, res) => {
       newuser.activationCode = randomstring.generate();
       newuser.status = "INACTIVE";
       let result = await db.collection("users").insertOne(newuser);
-      let encryptedDet = encryptRequest({email: newuser.email, activationCode: newuser.activationCode})
+      let encryptedDet = await encryptRequest({email: newuser.email, activationCode: newuser.activationCode})
       sendEmail(newuser.email,encryptedDet, 'NEWACCOUNT')
       res.status(200).json({status:"SUCCESS", message:"Registered successfully, Please check Your Email to Verify your account" });
       client.close();
@@ -52,8 +52,6 @@ authRoute.post("/login", async (req, res) => {
               expiresIn: "1h",
             }
           );
-          console.log("valid user", isValid);
-          console.log("token", token);
           res.status(200).json({
             status:"SUCCESS",
             message: "login success",
@@ -91,7 +89,8 @@ authRoute.post("/verifyaccount/", async (req, res) => {
     try {
       let client = await mongoClient.connect(dbUrl, {useNewUrlParser: true, useUnifiedTopology: true});
       let db = client.db("googledriveclone");
-      let reqData = decryptRequest(req.body.encryptedText)
+      let reqData = await decryptRequest(req.body.encryptedText)
+      // if(!reqData) res.status(203).json({ status:"ERROR", message: "Invalid Url and User Verification" });
       let data = await db
         .collection("users")
         .findOne({ email: reqData.email });
@@ -112,7 +111,7 @@ authRoute.post("/verifyaccount/", async (req, res) => {
       }
     } catch (err) {
       console.log(err);
-      res.status(2004).json({ status:"ERROR", message: "Invalid URL" });
+      res.status(204).json({ status:"ERROR", message: "Invalid URL" });
     }
   });
 
@@ -130,7 +129,7 @@ authRoute.post("/verifyaccount/", async (req, res) => {
           if(data.status =='ACTIVE'){
                 let genCode = randomstring.generate();
                 let result = await db.collection("users").findOneAndUpdate({ _id: data._id }, { $set: { code: genCode } });
-                let encryptedDet = encryptRequest({email: req.body.email, code: genCode})
+                let encryptedDet = await encryptRequest({email: req.body.email, code: genCode})
                 sendEmail(req.body.email,encryptedDet, 'PASSWORDRESET') 
                 res.status(200).json({ status:"SUCCESS", message: "Password Reset Email Sent" });
                 client.close();
@@ -149,7 +148,8 @@ authRoute.post("/verifyaccount/", async (req, res) => {
     try {
       let client = await mongoClient.connect(dbUrl, {useNewUrlParser: true, useUnifiedTopology: true});
       let db = client.db("googledriveclone");
-      let reqData = decryptRequest(req.body.encryptedText)
+      let reqData = await decryptRequest(req.body.encryptedText)
+      if(!reqData) res.status(203).json({ status:"ERROR", message: "Invalid Url" });
       let data = await db
         .collection("users")
         .findOne({ email: reqData.email });
@@ -176,7 +176,8 @@ authRoute.post("/verifyaccount/", async (req, res) => {
     try {
       let client = await mongoClient.connect(dbUrl, {useNewUrlParser: true, useUnifiedTopology: true});
       let db = client.db("googledriveclone");
-      let reqData = decryptRequest(req.body.encryptedText)
+      let reqData = await decryptRequest(req.body.encryptedText)
+      if(!reqData) res.status(203).json({ status:"ERROR", message: "Invalid Url" });
       let data = await db
         .collection("users")
         .findOne({ email: reqData.email });
