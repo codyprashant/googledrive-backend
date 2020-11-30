@@ -49,7 +49,7 @@ authRoute.post("/login", async (req, res) => {
             { userId: data._id },
             process.env.JWT_KEY,
             {
-              expiresIn: "1h",
+              expiresIn: "24h",
             }
           );
           res.status(200).json({
@@ -99,7 +99,7 @@ authRoute.post("/verifyaccount/", async (req, res) => {
       } else {
           if(data.status =='INACTIVE'){
               if(data.activationCode == reqData.activationCode){
-                let result = await db.collection("users").findOneAndUpdate({ _id: data._id }, { $set: { status: 'ACTIVE', activationCode:'' } });
+                let result = await db.collection("users").findOneAndUpdate({ _id: data._id }, { $set: { status: 'ACTIVE', activationCode:'', allocatedSpace: 50000000, usedDriveSpace: 0, trashSpace: 0, tempSpace:0, trashAllocate: 10000000, tempAllocate: 200000000  } });
                 res.status(200).json({ status:"SUCCESS", message: "User Activated successfully" });
                 client.close();
               } else{

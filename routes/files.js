@@ -6,13 +6,14 @@ const multerS3 = require("multer-s3");
 const multer = require("multer");
 const path = require("path");
 const jwt_decode = require("jwt-decode");
+const S3Sizer = require('aws-s3-size');
 
 const s3 = new aws.S3({
   accessKeyId: process.env.AWS_ACCESS_KEY,
   secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
   Bucket: process.env.AWS_BUCKET_NAME,
 });
-
+const s3Sizer = new S3Sizer({s3 : s3});
 const { authorize, allowUser } = require("../middlewares/auth");
 const mongoClient = mongoDB.MongoClient;
 const objId = mongoDB.ObjectID;
@@ -99,7 +100,6 @@ filesRoute.get("/getAllFiles", authorize, async (req, res) => {
       useUnifiedTopology: true,
     });
     let db = client.db("googledriveclone");
-    let fileDetail = req.file;
     let userId = getUserId(req.headers.authorization);
     let data = await db.collection("users").findOne({ _id: objId(userId) });
     if (data) {
@@ -120,6 +120,143 @@ filesRoute.get("/getAllFiles", authorize, async (req, res) => {
   }
 });
 
+filesRoute.get("/gettotalStats", authorize, async (req, res) => {
+  try {
+    let client = await mongoClient.connect(dbUrl, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    });
+    let db = client.db("googledriveclone");
+    let userId = getUserId(req.headers.authorization);
+    let data = await db.collection("users").findOne({ _id: objId(userId) });
+    if (data) {
+      let data2 = await db.collection("files").find({ userId: objId(userId) }).toArray();
+      if (data2.length > 0) {
+        await s3Sizer.getFolderSize(process.env.AWS_BUCKET_NAME, `${userId}/uploads`, async function(err, uploadsSize) {
+          if(err){
+            console.log(`Uploads Size: ${err}`);
+            res.json({ status: "ERROR", message: "Something went wrong" });
+          } else{
+            await s3Sizer.getFolderSize(process.env.AWS_BUCKET_NAME, `${userId}/trash`, async function(err1, trashSize) {
+              if(err1){
+                console.log(`trash Size: ${err1}`);
+                res.json({ status: "ERROR", message: "Something went wrong" });
+              } else{
+                await s3Sizer.getFolderSize(process.env.AWS_BUCKET_NAME, `${userId}/tempSpace`, async function(err2, tempSpaceSize) {
+                  if(err2){
+                    console.log(`tempspace Size: ${err2}`);
+                    res.json({ status: "ERROR", message: "Something went wrong" });
+                  } else{
+                    let result = await db.collection("users").findOneAndUpdate({ _id: objId(userId)}, { $set: { usedDriveSpace: uploadsSize, trashSpace: trashSize, tempSpace:tempSpaceSize } });
+                    let final = await db.collection("users").findOne({ _id: objId(userId) });
+                    res.json({ status: "SUCCESS",  data: {usedSpace:final.usedDriveSpace ,allocated: final.allocatedSpace, trash: final.trashSpace, tempSpace: final.tempSpace, trashAllocate: final.trashAllocate, tempAllocate: final.tempAllocate } });
+                  } 
+                });
+              } 
+            });
+          } 
+        });
+      } else{
+        res.json({ status:"NOUPLOADS", message: "No Files Uploaded" });
+      }
+    } else {
+      res.json({ error: "ERROR", message: "Invalid User" });
+    }
+  } catch (e) {
+    console.log(e);
+    res.json({ status: "ERROR", message: "Something went wrong" });
+  }
+});
 
+filesRoute.post("/deleteFile", authorize, async (req, res) => {
+  try {
+    let client = await mongoClient.connect(dbUrl, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    });
+    let db = client.db("googledriveclone");
+    let itemId = req.body.itemId;
+    let userId = getUserId(req.headers.authorization);
+    if (itemId) {
+      let result2 = await db.collection("files").find({ _id: objId(itemId) }).toArray();
+      var params = { 
+        Bucket: process.env.AWS_BUCKET_NAME,
+        CopySource: `${process.env.AWS_BUCKET_NAME}/${result2[0].s3FileName}`, 
+        Key : `${result2[0].userId}/trash/${(result2[0].s3FileName).replace(`${result2[0].userId}/uploads/`, '')}`,
+        ACL: 'public-read' 
+      };
+      await s3.copyObject(params, async function(err, data) {
+        if (err){ 
+          console.log(err, err.stack);
+          res.json({ status: "ERROR", message: "Something went wrong, File not copied" });
+        } 
+        else{
+          var params = { Bucket: process.env.AWS_BUCKET_NAME, Key: result2[0].s3FileName };
+          await s3.deleteObject(params, async function(err1, data1) {
+            if (err1){ 
+              console.log(err1, err1.stack);
+              res.json({ status: "ERROR", message: "Something went wrong, File not Deleted" });
+            } 
+            else{
+              let deleteRes = await db.collection("files").deleteOne({ _id: objId(itemId) });
+              var datetime = new Date()
+              let result = await db.collection("trashFiles").insertOne({
+                userId: objId(result2[0].userId),
+                origfileName: result2[0].origfileName,
+                s3FileName: `${result2[0].userId}/trash/${(result2[0].s3FileName).replace(`${result2[0].userId}/uploads/`, '')}`,
+                bucketName: result2[0].bucketName,
+                fileType: result2[0].fileType,
+                fileSize: result2[0].fileSize,
+                publicUrl: `${(result2[0].publicUrl).replace(`uploads`, 'trash')}`,
+                creationDate: datetime
+              });
+             
+              let newFiles = await db.collection("files").find({ userId: objId(result2[0].userId) }).toArray();
+              res.json({ status: "SUCCESS", delStatus:deleteRes, message: "File Deleted Successfully", data:newFiles });
+            }
+          });
+        }      
+      });
+      
+    } else {
+      res.json({ error: "ERROR", message: "Invalid File" });
+    }
+  } catch (e) {
+    console.log(e);
+    res.json({ status: "ERROR", message: "Something went wrong" });
+  }
+});
+
+filesRoute.post("/deleteTrashFile", authorize, async (req, res) => {
+  try {
+    let client = await mongoClient.connect(dbUrl, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    });
+    let db = client.db("googledriveclone");
+    let itemId = req.body.itemId;
+    let userId = getUserId(req.headers.authorization);
+    if (itemId) {
+      let result2 = await db.collection("files").find({ _id: objId(itemId) }).toArray();
+      var params = { Bucket: process.env.AWS_BUCKET_NAME, Key: result2[0].s3FileName };
+      await s3.deleteObject(params, async function(err, data) {
+        if (err){ 
+          console.log(err, err.stack);
+          res.json({ status: "ERROR", message: "Something went wrong, File not Deleted" });
+        } 
+        else{
+          let deleteRes = await db.collection("files").deleteOne({ _id: objId(itemId) });
+          let newFiles = await db.collection("files").find({ userId: objId(result2[0].userId) }).toArray();
+          res.json({ status: "SUCCESS", delStatus:deleteRes, message: "File Deleted Successfully", data:newFiles });
+        }
+      });
+    } else {
+      res.json({ error: "ERROR", message: "Invalid File" });
+    }
+  } catch (e) {
+    console.log(e);
+    res.json({ status: "ERROR", message: "Something went wrong" });
+  }
+});
 
 module.exports = filesRoute;
