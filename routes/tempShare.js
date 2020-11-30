@@ -32,7 +32,7 @@ const profileImgUpload = multer({
       );
     },
   }),
-  limits: { fileSize: 500000 }, // In bytes: 5000000 bytes = 5 MB
+  limits: { fileSize: 5000000 }, // In bytes: 5000000 bytes = 5 MB
 }).single("file");
 
 const getUserId = (token) => {
