@@ -12,6 +12,7 @@ const s3 = new aws.S3({
   accessKeyId: process.env.AWS_ACCESS_KEY,
   secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
   Bucket: process.env.AWS_BUCKET_NAME,
+  region: 'us-east-1'
 });
 console.log(s3)
 const s3Sizer = new S3Sizer({s3 : s3});
