@@ -13,7 +13,9 @@ const s3 = new aws.S3({
   secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
   Bucket: process.env.AWS_BUCKET_NAME,
 });
+console.log(s3)
 const s3Sizer = new S3Sizer({s3 : s3});
+console.log(s3Sizer)
 const { authorize, allowUser } = require("../middlewares/auth");
 const mongoClient = mongoDB.MongoClient;
 const objId = mongoDB.ObjectID;
