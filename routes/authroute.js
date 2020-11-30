@@ -41,6 +41,7 @@ authRoute.post("/login", async (req, res) => {
     let client = await mongoClient.connect(dbUrl, {useNewUrlParser: true, useUnifiedTopology: true});
     let db = client.db("googledriveclone");
     let data = await db.collection("users").findOne({ email: req.body.email });
+    client.close();
     if (data) {
       if (data.status == "ACTIVE") {
         let isValid = await bcrypt.compare(req.body.password, data.password);
@@ -74,7 +75,7 @@ authRoute.post("/login", async (req, res) => {
         message: "Email is not registered",
       });
     }
-    client.close();
+   
   } catch (error) {
     console.log(error);
     res.status(204).json({
@@ -91,10 +92,9 @@ authRoute.post("/verifyaccount/", async (req, res) => {
       let db = client.db("googledriveclone");
       let reqData = await decryptRequest(req.body.encryptedText)
       // if(!reqData) res.status(203).json({ status:"ERROR", message: "Invalid Url and User Verification" });
-      let data = await db
-        .collection("users")
-        .findOne({ email: reqData.email });
+      let data = await db.collection("users").findOne({ email: reqData.email });
       if (!data) {
+        client.close();
         res.status(203).json({ status:"ERROR", message: "Invalid Url and User Verification" });
       } else {
           if(data.status =='INACTIVE'){
@@ -103,9 +103,11 @@ authRoute.post("/verifyaccount/", async (req, res) => {
                 res.status(200).json({ status:"SUCCESS", message: "User Activated successfully" });
                 client.close();
               } else{
+                client.close();
                 res.status(203).json({ status:"ERROR", message: "Invalid URL with code" });
               }
           } else{
+            client.close();
             res.status(203).json({ status:"ERROR", message: "Account is already activated" });
           }
       }
@@ -120,10 +122,9 @@ authRoute.post("/verifyaccount/", async (req, res) => {
     try {
       let client = await mongoClient.connect(dbUrl, {useNewUrlParser: true, useUnifiedTopology: true});
       let db = client.db("googledriveclone");
-      let data = await db
-        .collection("users")
-        .findOne({ email: req.body.email });
+      let data = await db.collection("users").findOne({ email: req.body.email });
       if (!data) {
+        client.close();
         res.status(203).json({ message: "Email not Registered" });
       } else {
           if(data.status =='ACTIVE'){
@@ -135,6 +136,7 @@ authRoute.post("/verifyaccount/", async (req, res) => {
                 client.close();
            
           } else{
+            client.close();
             res.status(203).json({ status:"ERROR", message: "Account is not active activated. Please check your email to verify your email" });
           }
       }
@@ -150,10 +152,9 @@ authRoute.post("/verifyaccount/", async (req, res) => {
       let db = client.db("googledriveclone");
       let reqData = await decryptRequest(req.body.encryptedText)
       if(!reqData) res.status(203).json({ status:"ERROR", message: "Invalid Url" });
-      let data = await db
-        .collection("users")
-        .findOne({ email: reqData.email });
+      let data = await db.collection("users").findOne({ email: reqData.email });
       if (!data) {
+        client.close();
         res.status(203).json({ message: "Email not Registered" });
       } else {
           if(data.status =='ACTIVE'){
@@ -163,6 +164,7 @@ authRoute.post("/verifyaccount/", async (req, res) => {
             res.status(200).json({status:"SUCCESS", message: "Password  successfully changed, Please Login again"  });
             client.close();
           } else{
+            client.close();
             res.status(203).json({ status:"ERROR", message: "Account is not active activated. Please check your email to verify your email" });
           }
       }
@@ -178,10 +180,9 @@ authRoute.post("/verifyaccount/", async (req, res) => {
       let db = client.db("googledriveclone");
       let reqData = await decryptRequest(req.body.encryptedText)
       if(!reqData) res.status(203).json({ status:"ERROR", message: "Invalid Url" });
-      let data = await db
-        .collection("users")
-        .findOne({ email: reqData.email });
+      let data = await db.collection("users").findOne({ email: reqData.email });
       if (!data) {
+        client.close();
         res.status(203).json({ status:"ERROR", message: "Invalid Url and User Verification" });
       } else {
           if(data.status =='ACTIVE'){
@@ -190,9 +191,11 @@ authRoute.post("/verifyaccount/", async (req, res) => {
                 res.status(200).json({ status:"SUCCESS", message: "REquest Verified" });
                 client.close();
               } else{
+                client.close();
                 res.status(203).json({ status:"ERROR", message: "Invalid URL with code" });
               }
           } else{
+            client.close();
             res.status(203).json({ status:"ERROR", message: "Account is INACTIVE" });
           }
       }

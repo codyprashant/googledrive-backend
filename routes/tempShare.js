@@ -80,9 +80,11 @@ let userId = getUserId(req.headers.authorization);
             let sendRes = await sendEmail(data.email, req.body.receiveremail, fileDetail.location, fileDetail.originalname, `${req.body.firstName} ${req.body.lastName}`)
             // if(sendRes) res.json({ status: "SUCCESS"  });
             // else res.json({ error: "ERROR", message: "Email Failed" });
+            client.close();
             res.json({ status: "SUCCESS"  });
             
           } else {
+            client.close();
             res.json({ error: "ERROR", message: "Invalid User" });
           }
         } catch (e) {
@@ -108,11 +110,13 @@ filesRoute.get("/getAllSharedFiles", authorize, async (req, res) => {
         .collection("sharedFiles")
         .find({ userId: objId(data._id) })
         .toArray();
+        client.close();
       res.json({
         status: "SUCCESS",
         data: result2,
       });
     } else {
+      client.close();
       res.json({ error: "ERROR", message: "Invalid User" });
     }
   } catch (e) {
@@ -137,15 +141,18 @@ filesRoute.post("/deleteSharedFile", authorize, async (req, res) => {
       await s3.deleteObject(params, async function(err, data) {
         if (err){ 
           console.log(err, err.stack);
+          client.close();
           res.json({ status: "ERROR", message: "Something went wrong, File not Deleted" });
         } 
         else{
           let deleteRes = await db.collection("files").deleteOne({ _id: objId(itemId) });
           let newFiles = await db.collection("files").find({ userId: objId(result2[0].userId) }).toArray();
+          client.close();
           res.json({ status: "SUCCESS", delStatus:deleteRes, message: "File Deleted Successfully", data:newFiles });
         }
       });
     } else {
+      client.close();
       res.json({ error: "ERROR", message: "Invalid File" });
     }
   } catch (e) {

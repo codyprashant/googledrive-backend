@@ -58,10 +58,7 @@ let userId = getUserId(req.headers.authorization);
           let fileDetail = req.file;
           
           var datetime = new Date();
-     
-          let data = await db
-            .collection("users")
-            .findOne({ _id: objId(userId) });
+          let data = await db.collection("users").findOne({ _id: objId(userId) });
           if (data) {
             let result = await db.collection("files").insertOne({
               userId: objId(data._id),
@@ -73,15 +70,11 @@ let userId = getUserId(req.headers.authorization);
               publicUrl: fileDetail.location,
               creationDate: datetime
             });
-            let result2 = await db
-              .collection("files")
-              .find({ userId: objId(data._id) })
-              .toArray();
-            res.json({
-              status: "SUCCESS",
-              data: result2,
-            });
+            let result2 = await db.collection("files").find({ userId: objId(data._id) }).toArray();
+            client.close();
+            res.json({ status: "SUCCESS", data: result2, });
           } else {
+            client.close();
             res.json({ error: "ERROR", message: "Invalid User" });
           }
         } catch (e) {
@@ -95,23 +88,16 @@ let userId = getUserId(req.headers.authorization);
 
 filesRoute.get("/getAllFiles", authorize, async (req, res) => {
   try {
-    let client = await mongoClient.connect(dbUrl, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    });
+    let client = await mongoClient.connect(dbUrl, {useNewUrlParser: true,useUnifiedTopology: true, });
     let db = client.db("googledriveclone");
     let userId = getUserId(req.headers.authorization);
     let data = await db.collection("users").findOne({ _id: objId(userId) });
     if (data) {
-      let result2 = await db
-        .collection("files")
-        .find({ userId: objId(data._id) })
-        .toArray();
-      res.json({
-        status: "SUCCESS",
-        data: result2,
-      });
+      let result2 = await db.collection("files").find({ userId: objId(data._id) }).toArray();
+      client.close();
+      res.json({ status: "SUCCESS", data: result2, });
     } else {
+      client.close();
       res.json({ error: "ERROR", message: "Invalid User" });
     }
   } catch (e) {
@@ -122,10 +108,7 @@ filesRoute.get("/getAllFiles", authorize, async (req, res) => {
 
 filesRoute.get("/gettotalStats", authorize, async (req, res) => {
   try {
-    let client = await mongoClient.connect(dbUrl, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    });
+    let client = await mongoClient.connect(dbUrl, { useNewUrlParser: true, useUnifiedTopology: true, });
     let db = client.db("googledriveclone");
     let userId = getUserId(req.headers.authorization);
     let data = await db.collection("users").findOne({ _id: objId(userId) });
@@ -135,20 +118,24 @@ filesRoute.get("/gettotalStats", authorize, async (req, res) => {
         await s3Sizer.getFolderSize(process.env.AWS_BUCKET_NAME, `${userId}/uploads`, async function(err, uploadsSize) {
           if(err){
             console.log(`Uploads Size: ${err}`);
+            client.close();
             res.json({ status: "ERROR", message: "Something went wrong" });
           } else{
             await s3Sizer.getFolderSize(process.env.AWS_BUCKET_NAME, `${userId}/trash`, async function(err1, trashSize) {
               if(err1){
                 console.log(`trash Size: ${err1}`);
+                client.close();
                 res.json({ status: "ERROR", message: "Something went wrong" });
               } else{
                 await s3Sizer.getFolderSize(process.env.AWS_BUCKET_NAME, `${userId}/tempSpace`, async function(err2, tempSpaceSize) {
                   if(err2){
                     console.log(`tempspace Size: ${err2}`);
+                    client.close();
                     res.json({ status: "ERROR", message: "Something went wrong" });
                   } else{
                     let result = await db.collection("users").findOneAndUpdate({ _id: objId(userId)}, { $set: { usedDriveSpace: uploadsSize, trashSpace: trashSize, tempSpace:tempSpaceSize } });
                     let final = await db.collection("users").findOne({ _id: objId(userId) });
+                    client.close();
                     res.json({ status: "SUCCESS",  data: {usedSpace:final.usedDriveSpace ,allocated: final.allocatedSpace, trash: final.trashSpace, tempSpace: final.tempSpace, trashAllocate: final.trashAllocate, tempAllocate: final.tempAllocate } });
                   } 
                 });
@@ -157,9 +144,11 @@ filesRoute.get("/gettotalStats", authorize, async (req, res) => {
           } 
         });
       } else{
+        client.close();
         res.json({ status:"NOUPLOADS", message: "No Files Uploaded" });
       }
     } else {
+      client.close();
       res.json({ error: "ERROR", message: "Invalid User" });
     }
   } catch (e) {
@@ -170,10 +159,7 @@ filesRoute.get("/gettotalStats", authorize, async (req, res) => {
 
 filesRoute.post("/deleteFile", authorize, async (req, res) => {
   try {
-    let client = await mongoClient.connect(dbUrl, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    });
+    let client = await mongoClient.connect(dbUrl, { useNewUrlParser: true,  useUnifiedTopology: true, });
     let db = client.db("googledriveclone");
     let itemId = req.body.itemId;
     let userId = getUserId(req.headers.authorization);
@@ -188,6 +174,7 @@ filesRoute.post("/deleteFile", authorize, async (req, res) => {
       await s3.copyObject(params, async function(err, data) {
         if (err){ 
           console.log(err, err.stack);
+          client.close();
           res.json({ status: "ERROR", message: "Something went wrong, File not copied" });
         } 
         else{
@@ -195,6 +182,7 @@ filesRoute.post("/deleteFile", authorize, async (req, res) => {
           await s3.deleteObject(params, async function(err1, data1) {
             if (err1){ 
               console.log(err1, err1.stack);
+              client.close();
               res.json({ status: "ERROR", message: "Something went wrong, File not Deleted" });
             } 
             else{
@@ -212,6 +200,7 @@ filesRoute.post("/deleteFile", authorize, async (req, res) => {
               });
              
               let newFiles = await db.collection("files").find({ userId: objId(result2[0].userId) }).toArray();
+              client.close();
               res.json({ status: "SUCCESS", delStatus:deleteRes, message: "File Deleted Successfully", data:newFiles });
             }
           });
@@ -219,6 +208,7 @@ filesRoute.post("/deleteFile", authorize, async (req, res) => {
       });
       
     } else {
+      client.close();
       res.json({ error: "ERROR", message: "Invalid File" });
     }
   } catch (e) {
@@ -242,15 +232,18 @@ filesRoute.post("/deleteTrashFile", authorize, async (req, res) => {
       await s3.deleteObject(params, async function(err, data) {
         if (err){ 
           console.log(err, err.stack);
+          client.close();
           res.json({ status: "ERROR", message: "Something went wrong, File not Deleted" });
         } 
         else{
           let deleteRes = await db.collection("files").deleteOne({ _id: objId(itemId) });
           let newFiles = await db.collection("files").find({ userId: objId(result2[0].userId) }).toArray();
+          client.close();
           res.json({ status: "SUCCESS", delStatus:deleteRes, message: "File Deleted Successfully", data:newFiles });
         }
       });
     } else {
+      client.close();
       res.json({ error: "ERROR", message: "Invalid File" });
     }
   } catch (e) {
