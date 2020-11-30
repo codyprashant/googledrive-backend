@@ -232,7 +232,9 @@ async function sendEmail(userEmail, encryptText, purpose) {
         if(error){
             console.log(error);
         }
+
         if(response){
+          console.log(response)
           return true;
         } else{
           return false;
@@ -256,6 +258,7 @@ else if(purpose == 'PASSWORDRESET'){
           console.log(error);
       }
       if(response){
+        console.log(response)
         return true;
       } else{
         return false;
