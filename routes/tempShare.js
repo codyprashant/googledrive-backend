@@ -75,7 +75,8 @@ let userId = getUserId(req.headers.authorization);
               firstName: req.body.firstName,
               lastName: req.body.lastName,
               receiveremail:req.body.receiveremail,
-              senderEmail: data.email
+              senderEmail: data.email,
+              expired: 0
             });
             let sendRes = await sendEmail(data.email, req.body.receiveremail, fileDetail.location, fileDetail.originalname, `${req.body.firstName} ${req.body.lastName}`)
             // if(sendRes) res.json({ status: "SUCCESS"  });
